@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#16181a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Bau-Sandbox</title>
+<style>
+/* VOICE occasion: ein Spiel, robust und handfest wie Baustellen-Ausrüstung
+   IDEA Bedienpult eines Baggers: schwarze Konsolen, Warngelb, klare Beschriftung
+   PICTURE die 3D-Baustelle füllt den ganzen Bildschirm
+   COLOUR Nachtschwarz-Konsole #15171a, Baugelb #f5b301, Signalgrün #46c867, Warnorange #ff7a33
+   TYPE Barlow Condensed (Beschriftung wie auf Maschinenschildern) + Barlow
+   LAYOUT Fahrzeugleiste oben links, Werkzeuge oben rechts, Joysticks unten in den Ecken, Messwerte unten Mitte */
+:root{color-scheme:dark;--ink:#f4f2ea;--mut:#b9b6ab;--panel:rgba(18,20,23,.78);--line:rgba(255,255,255,.14);--y:#f5b301;--ok:#46c867;--warn:#ff7a33;--st:132px}
+*{box-sizing:border-box;min-width:0;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0;background:#16181a;overflow:hidden;overscroll-behavior:none}
+body{color:var(--ink);font:15px/1.35 Barlow,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none}
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+button{font:inherit;color:inherit;cursor:pointer}
+#ui{position:fixed;inset:0;pointer-events:none}
+#ui.play .hud-layer{display:block}
+.hud-layer{display:none}
+#ui button,#ui .stick,#menu,#placebar,#splash{pointer-events:auto}
+.cond{font-family:"Barlow Condensed",Barlow,system-ui,sans-serif}
+
+/* Fahrzeugleiste */
+#bar{position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);left:calc(env(safe-area-inset-left,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 190px);display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+#bar::-webkit-scrollbar{display:none}
+.veh{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:62px;height:52px;border:1px solid var(--line);border-radius:10px;background:var(--panel);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font:600 13px/1 "Barlow Condensed",Barlow,sans-serif;letter-spacing:.01em}
+.veh svg{width:28px;height:22px;fill:currentColor;stroke:currentColor;stroke-width:.6}
+.veh.on{background:var(--y);color:#16181a;border-color:var(--y)}
+.veh:active{transform:scale(.96)}
+
+#tools{position:absolute;top:calc(env(safe-area-inset-top,0px) + 8px);right:calc(env(safe-area-inset-right,0px) + 8px);display:flex;gap:6px}
+.tool{display:flex;flex-direction:column;align-items:center;justify-content:center;width:56px;height:52px;border:1px solid var(--line);border-radius:10px;background:var(--panel);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);font:600 12.5px/1 "Barlow Condensed",Barlow,sans-serif;gap:3px}
+.tool svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.tool.off{color:var(--mut)}
+
+/* Baustellen-Aufgabe */
+#task{position:absolute;top:calc(env(safe-area-inset-top,0px) + 68px);left:50%;transform:translateX(-50%);width:min(440px,calc(100vw - 32px));padding:8px 12px 9px;border-radius:10px;background:var(--panel);border:1px solid var(--line);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#taskTitle{font:700 16px/1.15 "Barlow Condensed",Barlow,sans-serif;color:var(--y)}
+#taskDetail{font-size:13.5px;color:var(--ink);margin-top:2px}
+.prog{height:5px;border-radius:3px;background:rgba(255,255,255,.12);margin-top:6px;overflow:hidden}
+#taskBar{height:100%;width:0;background:var(--y);transition:width .3s}
+
+#toasts{position:absolute;top:calc(env(safe-area-inset-top,0px) + 136px);left:50%;transform:translateX(-50%);width:min(460px,calc(100vw - 32px));display:flex;flex-direction:column;gap:6px;align-items:center}
+.toast{padding:8px 12px;border-radius:9px;background:rgba(18,20,23,.9);border-left:4px solid #8fb6ff;font-size:14px;max-width:100%;transition:opacity .5s,transform .5s}
+.toast.ok{border-color:var(--ok)}.toast.warn{border-color:var(--warn)}
+.toast.out{opacity:0;transform:translateY(-6px)}
+
+/* Messwerte */
+#hud{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 10px);left:50%;transform:translateX(-50%);display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:4px;width:min(470px,calc(100vw - 2*var(--st) - 72px))}
+.cell{padding:6px 7px;border-radius:8px;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;min-width:0}
+.cell .k{font:600 12.5px/1.1 "Barlow Condensed",Barlow,sans-serif;color:var(--mut)}
+.cell b{font:700 16px/1.15 "Barlow Condensed",Barlow,sans-serif;white-space:nowrap;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis}
+.cell .s{font-size:12.5px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell.warn b,.cell.warn .s{color:var(--warn)}
+#stats{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 82px);left:50%;transform:translateX(-50%);font-size:12.5px;color:rgba(255,255,255,.75);white-space:nowrap;text-shadow:0 1px 2px #000;max-width:calc(100vw - 2*var(--st) - 72px);overflow:hidden;text-overflow:ellipsis}
+
+/* Joysticks */
+.stick{position:absolute;bottom:calc(env(safe-area-inset-bottom,0px) + 26px);width:calc(var(--st) + 44px);height:calc(var(--st) + 44px);touch-action:none}
+#stickL{left:calc(env(safe-area-inset-left,0px) + 8px)}
+#stickR{right:calc(env(safe-area-inset-right,0px) + 8px)}
+.stick .base{position:absolute;left:22px;top:22px;width:var(--st);height:var(--st);border-radius:50%;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.06),rgba(0,0,0,.42) 70%);border:2px solid rgba(255,255,255,.28);box-shadow:inset 0 0 0 10px rgba(0,0,0,.18)}
+.stick .base::before,.stick .base::after{content:"";position:absolute;background:rgba(255,255,255,.18)}
+.stick .base::before{left:50%;top:14%;bottom:14%;width:1px}
+.stick .base::after{top:50%;left:14%;right:14%;height:1px}
+.knob{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;transform:translate(-50%,-50%);background:radial-gradient(circle at 40% 35%,#3a3d42,#121315 75%);border:3px solid var(--y);box-shadow:0 3px 8px rgba(0,0,0,.6)}
+.stick.on .knob{border-color:#ffd04d}
+.stick.idle{opacity:.35}
+.lb{position:absolute;font:700 13px/1 "Barlow Condensed",Barlow,sans-serif;color:#fff;text-shadow:0 1px 2px #000,0 0 6px rgba(0,0,0,.8);white-space:nowrap;pointer-events:none}
+.lb.up{top:0;left:50%;transform:translateX(-50%)}
+.lb.down{bottom:0;left:50%;transform:translateX(-50%)}
+.lb.left{left:0;top:50%;transform:translate(0,-50%) rotate(-90deg);transform-origin:center}
+.lb.right{right:0;top:50%;transform:translate(0,-50%) rotate(90deg);transform-origin:center}
+#stickL .lb.left{left:-14px}#stickL .lb.right{right:-14px}
+#stickR .lb.left{left:-14px}#stickR .lb.right{right:-14px}
+
+#actions{position:absolute;right:calc(env(safe-area-inset-right,0px) + 16px);bottom:calc(env(safe-area-inset-bottom,0px) + var(--st) + 82px);display:flex;flex-direction:column;gap:8px;align-items:flex-end}
+.act{min-width:120px;min-height:52px;padding:6px 14px;border-radius:12px;border:2px solid var(--y);background:rgba(18,20,23,.86);font:700 17px/1.05 "Barlow Condensed",Barlow,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.act small{font:600 12px/1 Barlow,sans-serif;color:var(--mut);margin-bottom:2px}
+.act:active{background:var(--y);color:#16181a}
+
+/* Platzieren */
+#placebar{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);transform:translateX(-50%);width:min(520px,calc(100vw - 24px));padding:10px;border-radius:12px;background:rgba(18,20,23,.92);border:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:8px;align-items:center;z-index:5}
+#placebar b{font:700 17px/1.1 "Barlow Condensed",Barlow,sans-serif;color:var(--y)}
+#placeInfo{font-size:13px;color:var(--mut)}
+.pbtn{height:46px;padding:0 14px;border-radius:10px;border:1px solid var(--line);background:#2a2d31;font-weight:700}
+.pbtn.go{background:var(--y);color:#16181a;border-color:var(--y)}
+.pbtn:disabled{opacity:.4}
+
+/* Menü */
+#menu{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));z-index:10;touch-action:pan-y}
+.sheet{width:min(720px,100%);max-height:100%;overflow-y:auto;border-radius:14px;background:#1b1d20;border:1px solid var(--line);padding:14px 16px 18px;touch-action:pan-y;-webkit-overflow-scrolling:touch;user-select:text}
+.sheet h2{font:700 26px/1.05 "Barlow Condensed",Barlow,sans-serif;margin:0;letter-spacing:-.01em}
+.sheet h3{font:700 17px/1.1 "Barlow Condensed",Barlow,sans-serif;color:var(--y);margin:14px 0 8px}
+.mhead{display:flex;justify-content:space-between;align-items:center}
+.x{width:44px;height:44px;border-radius:10px;border:1px solid var(--line);background:#2a2d31;font-size:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.card{text-align:left;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:#24272b;min-height:64px}
+.card b{display:block;font:700 17px/1.1 "Barlow Condensed",Barlow,sans-serif}
+.card span{display:block;font-size:13px;color:var(--mut);margin-top:3px}
+.card:active{border-color:var(--y)}
+.card.danger b{color:var(--warn)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:15px}
+.row small{display:block;color:var(--mut);font-size:13px}
+.row input[type=checkbox]{width:24px;height:24px;accent-color:var(--y)}
+.row select{font:inherit;font-size:16px;padding:6px 8px;border-radius:8px;background:#2a2d31;color:var(--ink);border:1px solid var(--line)}
+#help{font-size:14.5px;line-height:1.5;color:#dedbd2}
+#help p{margin:6px 0}
+#help b{color:var(--ink)}
+#saveInfo{font-size:13px;color:var(--mut);margin-top:6px}
+
+/* Startbildschirm */
+#splash{position:fixed;inset:0;display:flex;align-items:flex-end;justify-content:flex-start;padding:max(18px,env(safe-area-inset-top,0px)) max(18px,env(safe-area-inset-right,0px)) max(18px,env(safe-area-inset-bottom,0px)) max(18px,env(safe-area-inset-left,0px));background:linear-gradient(90deg,rgba(14,15,17,.82),rgba(14,15,17,.35) 55%,rgba(14,15,17,0));z-index:20}
+.sp{width:min(470px,100%);padding:4px 4px}
+.sp .stripe{height:10px;width:132px;background:repeating-linear-gradient(-45deg,var(--y) 0 10px,#16181a 10px 20px);border-radius:2px;margin-bottom:12px}
+.sp h1{font:800 clamp(42px,7vw,64px)/.95 "Barlow Condensed",Barlow,sans-serif;margin:0;letter-spacing:-.02em}
+.sp p{font-size:16px;color:#e2dfd6;margin:10px 0 12px;max-width:42ch}
+.sp ul{margin:0 0 16px;padding:0;list-style:none;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px 14px;font-size:14px;color:#d7d4cb}
+.sp li{padding-left:14px;position:relative}
+.sp li::before{content:"";position:absolute;left:0;top:.5em;width:7px;height:7px;background:var(--y)}
+#btnStart{height:56px;padding:0 28px;border-radius:12px;border:0;background:var(--y);color:#16181a;font:800 21px/1 "Barlow Condensed",Barlow,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.sp .hint{font-size:13px;color:var(--mut);margin-top:10px}
+#splashSave{color:var(--ok)}
+#rotate{display:none}
+
+body.portrait{--st:112px}
+body.portrait #hud{bottom:calc(env(safe-area-inset-bottom,0px) + var(--st) + 64px);width:calc(100vw - 32px);grid-auto-flow:row;grid-template-columns:repeat(2,minmax(0,1fr))}
+body.portrait #stats{bottom:calc(env(safe-area-inset-bottom,0px) + var(--st) + 176px);max-width:calc(100vw - 32px)}
+body.portrait #actions{bottom:calc(env(safe-area-inset-bottom,0px) + var(--st) + 200px)}
+body.portrait #bar{right:calc(env(safe-area-inset-right,0px) + 8px);top:calc(env(safe-area-inset-top,0px) + 66px)}
+body.portrait #task{top:calc(env(safe-area-inset-top,0px) + 126px)}
+body.portrait #toasts{top:calc(env(safe-area-inset-top,0px) + 196px)}
+body.portrait #rotate{display:block;position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);left:calc(env(safe-area-inset-left,0px) + 12px);font:600 13px/1.2 Barlow,sans-serif;color:var(--mut);max-width:45vw}
+@media (max-height:420px){:root{--st:118px}#task{top:calc(env(safe-area-inset-top,0px) + 64px);padding:6px 10px}#toasts{top:calc(env(safe-area-inset-top,0px) + 122px)}.cell{padding:4px 6px}#stats{display:none}}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="ui">
+  <div class="hud-layer">
+    <div id="rotate">Tipp: Handy quer halten</div>
+    <div id="bar" aria-label="Fahrzeuge"></div>
+    <div id="tools">
+      <button class="tool" id="btnCam" aria-label="Kamera wechseln"><svg viewBox="0 0 24 24"><path d="M3 8h4l2-3h6l2 3h4v11H3z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Verfolgen</span></button>
+      <button class="tool" id="btnSound" aria-label="Ton"><svg viewBox="0 0 24 24"><path d="M4 9h4l5-4v14l-5-4H4z"/><path d="M16 9a4 4 0 010 6M18.5 6.5a7.5 7.5 0 010 11"/></svg><span>Ton an</span></button>
+      <button class="tool" id="btnMenu" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg><span>Bauen</span></button>
+    </div>
+    <div id="task" hidden><div id="taskTitle"></div><div id="taskDetail"></div><div class="prog"><div id="taskBar"></div></div></div>
+    <div id="toasts"></div>
+    <div id="stats"></div>
+    <div id="hud"></div>
+    <div id="actions"></div>
+    <div class="stick" id="stickL"><div class="base"><div class="knob"></div></div><span class="lb up"></span><span class="lb down"></span><span class="lb left"></span><span class="lb right"></span></div>
+    <div class="stick" id="stickR"><div class="base"><div class="knob"></div></div><span class="lb up"></span><span class="lb down"></span><span class="lb left"></span><span class="lb right"></span></div>
+  </div>
+
+  <div id="placebar" hidden>
+    <div><b id="placeTitle">Platzieren</b><div id="placeInfo"></div></div>
+    <button class="pbtn" id="placeRot">↻ 90°</button>
+    <button class="pbtn" id="placeNo">Abbrechen</button>
+    <button class="pbtn go" id="placeOk">Bauen</button>
+  </div>
+
+  <div id="menu" hidden>
+    <div class="sheet">
+      <div class="mhead"><h2>Baustelle</h2><button class="x" id="menuClose" aria-label="Schließen">✕</button></div>
+      <h3>Neubau (Fertigteilbau mit Kran)</h3>
+      <div class="grid">
+        <button class="card" data-build="house"><b>Einfamilienhaus</b><span>8 × 8 m, Satteldach, 10 Fertigteile, ca. 14 m³ Beton</span></button>
+        <button class="card" data-build="garage"><b>Fertiggarage</b><span>3,5 × 6,5 m, 6 Fertigteile, ca. 5 m³ Beton</span></button>
+      </div>
+      <h3>Abrissobjekt aufstellen</h3>
+      <div class="grid">
+        <button class="card" data-build="old"><b>Altes Fachwerkhaus</b><span>2 Geschosse, Holzbalkendecke, Ziegeldach</span></button>
+        <button class="card" data-build="oldgarage"><b>Alte Ziegelgarage</b><span>Mauerwerk mit Betondecke</span></button>
+        <button class="card danger" id="siteCancel" hidden><b>Baustelle abbrechen</b><span>Aktuelle Baustelle entfernen</span></button>
+      </div>
+      <h3>Einstellungen</h3>
+      <div class="row"><label for="optIso">ISO-Steuerung<small>Wie im echten Bagger: Joystick nach vorn = Ausleger senken</small></label><input type="checkbox" id="optIso"></div>
+      <div class="row"><label for="optSound">Ton<small>Diesel, Hydraulik, Rückfahrwarner</small></label><input type="checkbox" id="optSound"></div>
+      <div class="row"><label for="optQuality">Grafik<small>Bei Ruckeln auf „niedrig“ stellen</small></label><select id="optQuality"><option value="hoch">hoch</option><option value="mittel">mittel</option><option value="niedrig">niedrig</option></select></div>
+      <h3>Spielstand</h3>
+      <div class="grid">
+        <button class="card" id="btnSave"><b>Speichern</b><span>Gelände, Fahrzeuge, Gebäude</span></button>
+        <button class="card" id="btnLoad"><b>Laden</b><span>Letzten Stand wiederherstellen</span></button>
+        <button class="card danger" id="btnReset"><b>Neu beginnen</b><span>Alles zurücksetzen</span></button>
+      </div>
+      <div id="saveInfo"></div>
+      <h3><button class="card" id="btnHelp" style="width:100%"><b>Anleitung &amp; Steuerung</b><span>Tippen zum Ein-/Ausklappen</span></button></h3>
+      <div id="help" hidden>
+        <p><b>Ablauf Neubau:</b> 1. Bauplatz mit Planierraupe oder Bagger einebnen (Abweichung ≤ 15 cm). 2. Fahrmischer mit dem Heck an die Schalung, „Beton ablassen“. Leer? Am Betonwerk unter das Silo fahren. 3. Beton härtet aus. 4. Fertigteile vom Lagerplatz mit dem Kran in die grünen Positionen heben, absetzen, „Ablassen“.</p>
+        <p><b>Abriss:</b> Mit dem Bagger-Löffel oder der Abrissbirne Wände einreißen. Ohne Auflager stürzen Decken und Dach ein. Trümmer werden zu Bauschutt – mit Bagger oder Radlader auf den Kipper laden und in der Deponie abkippen.</p>
+        <p><b>Bagger:</b> Links: vor/zurück = Stiel aus/ein, seitlich = Oberwagen drehen. Rechts: vor/zurück = Ausleger, seitlich = Löffel ein/aus. „Fahren“ schaltet auf das Kettenfahrwerk um. Ein voller Löffel gräbt nicht weiter; gekippt verliert er Material.</p>
+        <p><b>Kran:</b> Last pendelt – sanft anfahren und abbremsen. Die Traglast sinkt mit der Ausladung (10 t bis 14 m, dann 140 t·m). Lasten nicht aus der Höhe ausklinken: sie zerbrechen.</p>
+        <p><b>Kamera:</b> Mit einem Finger auf dem Bild wischen = drehen, zwei Finger = zoomen. Kamera-Knopf: Verfolgen → Kabine → Frei.</p>
+        <p><b>Tastatur:</b> WASD = linker Stick, Pfeiltasten oder IJKL = rechter Stick, Leertaste = Aktion, 1–7 = Fahrzeug, C = Kamera.</p>
+      </div>
+    </div>
+  </div>
+
+  <div id="splash">
+    <div class="sp">
+      <div class="stripe"></div>
+      <h1>Bau-Sandbox</h1>
+      <p>Graben, planieren, betonieren, Fertighäuser mit dem Kran aufstellen und alte Häuser abreißen – mit echter Bodenmechanik, Statik und pendelnden Lasten.</p>
+      <ul>
+        <li>Kettenbagger, Radlader, Raupe</li>
+        <li>Kipper &amp; Fahrmischer</li>
+        <li>Turmdrehkran mit Traglastkurve</li>
+        <li>Abrissbirne am Seilbagger</li>
+      </ul>
+      <button id="btnStart">Baustelle betreten</button>
+      <div class="hint">Am besten im Querformat spielen. Joysticks unten links und rechts. <span id="splashSave" hidden>Gespeicherter Stand geladen.</span></div>
+    </div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
