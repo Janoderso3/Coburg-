@@ -1,0 +1,16 @@
+{
+  "name": "com.coburg.bausandbox",
+  "version": "1.0.0",
+  "displayName": "Bau-Sandbox Gameplay",
+  "description": "Gemeinsamer Spielcode der Bau-Sandbox (Boden, Fahrzeuge, Gebäude, Missionen) für die PC-(HDRP) und iPhone-(URP) Variante.",
+  "unity": "6000.0",
+  "dependencies": {
+    "com.unity.modules.physics": "1.0.0",
+    "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.imgui": "1.0.0",
+    "com.unity.modules.terrain": "1.0.0",
+    "com.unity.modules.terrainphysics": "1.0.0",
+    "com.unity.modules.particlesystem": "1.0.0",
+    "com.unity.modules.jsonserialize": "1.0.0"
+  }
+}

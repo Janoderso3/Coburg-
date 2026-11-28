@@ -1,0 +1,18 @@
+{
+    "name": "BauSandbox.Editor",
+    "rootNamespace": "BauSandbox.EditorTools",
+    "references": [
+        "BauSandbox.Runtime"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
