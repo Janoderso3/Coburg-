@@ -1,6 +1,12 @@
 # Bau-Sandbox
 
-Realistischer Baustellen-Simulator für Handy und Browser (Three.js, ohne Build-Schritt).
+Realistischer Baustellen-Simulator.
+
+> **PC-Version (richtiges Spiel, Windows):** [`Releases/Bau-Sandbox-Windows.zip`](Releases/Bau-Sandbox-Windows.zip) herunterladen, entpacken, `Bau-Sandbox.exe` starten.
+> Gebaut mit Godot 4.7 (C#), mit Bodenphysik wie Sand und Lehm, synthetischem Motorklang, 10 Missionen mit Sternen und Grafik bis Ultra.
+> Quellcode und Anleitung: [`Godot/`](Godot/README.md). Die Unity-Fassung liegt unter [`Unity/`](Unity/README.md).
+
+Die folgende Beschreibung gilt für die Browser-Version für Handy und Browser (Three.js, ohne Build-Schritt).
 
 Graben, planieren, betonieren, Fertighäuser mit dem Turmdrehkran aufstellen und alte Häuser abreißen.
 
